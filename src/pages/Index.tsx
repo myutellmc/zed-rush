@@ -33,8 +33,10 @@ function fireConfetti() {
 }
 
 function GameCompleteEffect({ isGameComplete, onComplete }: { isGameComplete: boolean; onComplete: () => void }) {
+  const hasRun = useRef(false);
   useEffect(() => {
-    if (isGameComplete) {
+    if (isGameComplete && !hasRun.current) {
+      hasRun.current = true;
       onComplete();
       fireConfetti();
     }
@@ -173,7 +175,7 @@ export default function Index() {
     transitionTo('setup');
   };
 
-  const recordGameResults = async () => {
+  const recordGameResults = useCallback(async () => {
     const sorted = [...teams].sort((a, b) => b.score - a.score);
     try {
       await recordGameResultsMutation({
@@ -184,7 +186,7 @@ export default function Index() {
     } catch {
       // Results not saved to cloud — game still completes normally
     }
-  };
+  }, [teams, totalRounds, recordGameResultsMutation]);
 
   const fadeClass = `screen-fade ${visible ? 'screen-fade-in' : 'screen-fade-out'}`;
   const isUrgent = timeLeft <= 10 && isTimerRunning;
@@ -516,9 +518,9 @@ export default function Index() {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-2 justify-center">
+              <div className="grid grid-cols-2 gap-2">
                 {currentCard.slice(1).map((word, i) => (
-                  <Badge key={i} variant="destructive" className="justify-center py-2 text-sm font-semibold whitespace-nowrap">
+                  <Badge key={i} variant="destructive" className="justify-center py-2 text-sm font-semibold h-auto text-center whitespace-normal break-words leading-tight">
                     {word}
                   </Badge>
                 ))}
