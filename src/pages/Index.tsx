@@ -517,9 +517,9 @@ export default function Index() {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-wrap gap-2 justify-center">
                 {currentCard.slice(1).map((word, i) => (
-                  <Badge key={i} variant="destructive" className="justify-center py-2 text-sm font-semibold">
+                  <Badge key={i} variant="destructive" className="justify-center py-2 text-sm font-semibold whitespace-nowrap">
                     {word}
                   </Badge>
                 ))}
