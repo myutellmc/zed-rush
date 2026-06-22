@@ -194,7 +194,7 @@ export default function Index() {
   // ─── COVER ───────────────────────────────────────────────────────────────
   if (gameState === 'cover') {
     return (
-      <div className={`${BG} flex flex-col items-center justify-center p-4 relative overflow-hidden ${fadeClass}`}>
+      <div className={`flex flex-col items-center justify-center p-4 relative overflow-hidden ${fadeClass}`} style={{minHeight:'100vh', background:'linear-gradient(to bottom right, #1A5C1A, #d97706, #dc2626)'}}>
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-10  left-10  w-20 h-20 border-2 border-white rounded-full" />
           <div className="absolute top-32  right-20 w-16 h-16 border-2 border-white rotate-45" />
