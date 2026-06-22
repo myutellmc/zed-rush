@@ -181,9 +181,8 @@ export default function Index() {
         totalRounds,
         winningTeam: sorted[0].name,
       });
-      toast.success(`Game complete! ${sorted[0].name} wins with ${sorted[0].score} points!`);
     } catch {
-      toast.success(`Game complete! ${sorted[0].name} wins! (offline mode)`);
+      // Results not saved to cloud — game still completes normally
     }
   };
 
