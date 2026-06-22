@@ -4,7 +4,8 @@
     "namespace": "android_app",
     "package_name": "app.vercel.zed_rush_app.twa",
     "sha256_cert_fingerprints": [
-      "C5:3B:7A:8A:0C:E4:EE:3D:6B:81:A2:50:19:C6:32:BB:99:7A:E1:34:50:97:37:97:48:87:89:DD:5B:20:DA:61"
+      "C5:3B:7A:8A:0C:E4:EE:3D:6B:81:A2:50:19:C6:32:BB:99:7A:E1:34:50:97:37:97:48:87:89:DD:5B:20:DA:61",
+      "1D:BB:CE:16:03:7A:38:92:CA:EF:81:83:07:39:E9:5B:50:29:66:C4:EE:A0:B1:F2:A4:E5:C5:7F:D7:50:8A:BC"
     ]
   }
 }]
