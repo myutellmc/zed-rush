@@ -1,0 +1,27 @@
+# Render Blueprint: free static site hosting for Zed Rush.
+# In the Render dashboard choose New > Blueprint and select this repository.
+services:
+  - type: web
+    name: zed-rush
+    runtime: static
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+    headers:
+      # Always check for a new service worker so updates reach installed apps
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      # Built JS/CSS have content hashes in their names, so they never change
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      # Send client-side routes like /rules and /privacy to the app.
+      # Render only applies this when no real file exists at the path.
+      - type: rewrite
+        source: /*
+        destination: /index.html

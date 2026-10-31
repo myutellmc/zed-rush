@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
         </div>
 
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-          Effective date: 22 April 2026 &middot; Last updated: 22 April 2026
+          Effective date: 22 April 2026 &middot; Last updated: 31 October 2026
         </p>
 
         <div className="space-y-6 text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -43,31 +43,21 @@ export default function PrivacyPolicy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">What the app does store</h2>
-            <p className="mb-2">Two small things:</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>
-                <strong>Team and player names you type in, and game scores.</strong> When you play a round, the team
-                names, the player names you enter, round scores, and the date of the game are sent to our backend
-                (Convex, hosted in the United States) so the app can show team history. These names are only whatever
-                text you choose to type &mdash; the app never asks for real names and does not verify them. Please
-                avoid entering sensitive information as a team or player name. Each record is tagged with a random ID
-                the app creates on your device, so your teams and games are kept separate from other players&rsquo;
-                and are never shown to anyone else. This ID is not linked to your name, phone, or any account.
-              </li>
-              <li>
-                <strong>Technical information from your network request.</strong> Like any website, our backend
-                provider may automatically log your IP address and user-agent string for a short period as part of
-                normal server operation. We do not use this to identify or profile you.
-              </li>
-            </ul>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">What the app stores</h2>
+            <p>
+              Everything the game needs stays on your device: the team and player names you type in, scores, a game
+              in progress (so you can resume it), your theme preference (light / dark), and cached app files for
+              offline play. None of it is sent to us or anyone else. Clearing the app&rsquo;s data or uninstalling the
+              app deletes it.
+            </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">What stays on your device</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Technical information</h2>
             <p>
-              Your theme preference (light / dark), a game in progress (so you can resume it), and cached app files
-              for offline play are stored on your device only. They are never transmitted to us. Uninstalling the app clears them.
+              Like any website, our hosting provider may automatically log your IP address and user-agent string for
+              a short period when your device downloads the app&rsquo;s files. We do not use this to identify or
+              profile you.
             </p>
           </section>
 
@@ -75,9 +65,9 @@ export default function PrivacyPolicy() {
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Third parties</h2>
             <ul className="list-disc pl-6 space-y-1">
               <li>
-                <strong>Convex</strong> &mdash; our backend host (United States).{" "}
-                <a className="text-blue-600 dark:text-blue-400 underline" href="https://www.convex.dev/legal/privacy" target="_blank" rel="noopener noreferrer">
-                  Convex privacy policy
+                <strong>Render</strong> &mdash; hosts our web app and may log basic request data.{" "}
+                <a className="text-blue-600 dark:text-blue-400 underline" href="https://render.com/privacy" target="_blank" rel="noopener noreferrer">
+                  Render privacy policy
                 </a>
               </li>
               <li>
@@ -87,22 +77,7 @@ export default function PrivacyPolicy() {
                   Google privacy policy
                 </a>
               </li>
-              <li>
-                <strong>Vercel</strong> &mdash; hosts our web app and may log basic request data.{" "}
-                <a className="text-blue-600 dark:text-blue-400 underline" href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">
-                  Vercel privacy policy
-                </a>
-              </li>
             </ul>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Retention and deletion</h2>
-            <p>
-              Team and game records stay in the backend until we delete them or until you ask us to. To request
-              deletion of any data you believe relates to you, email the address above with enough detail (e.g., the
-              team name) to locate it. We will respond within 30 days.
-            </p>
           </section>
 
           <section>
@@ -119,18 +94,8 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Children</h2>
             <p>
-              Zed Rush is intended for players aged 13 and over. We do not knowingly collect personal data from
-              children under 13. If you believe a child has entered data into the app, email us and we will remove
-              anything we can identify.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">International users</h2>
-            <p>
-              Our backend is hosted in the United States, so team and game data you enter is transferred there. By
-              using the app you consent to this transfer. We keep the data minimal and rely on our providers&rsquo;
-              standard security measures (encryption in transit, restricted access).
+              Zed Rush is intended for players aged 13 and over. The app does not collect personal data from anyone,
+              including children.
             </p>
           </section>
 

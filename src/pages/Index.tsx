@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api.js";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
@@ -13,7 +11,6 @@ import confetti from "canvas-confetti";
 import { zambianCards } from "@/utils/cards";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import beepSound from "@/beep-09.mp3";
-import { getDeviceId } from "@/lib/device-id";
 
 type GameState = 'cover' | 'menu' | 'teams' | 'setup' | 'playing' | 'results';
 
@@ -37,7 +34,7 @@ type SavedGame = {
 };
 
 const TURN_SECONDS = 30;
-// Must match the limits in convex/teams.ts
+// Keep names short enough to fit on the scoreboard
 const MAX_NAME_LENGTH = 40;
 const MAX_MEMBERS = 20;
 const SAVE_KEY = 'zed-rush-game';
@@ -79,22 +76,18 @@ function fireConfetti() {
   }, 320);
 }
 
-function GameCompleteEffect({ isGameComplete, onComplete }: { isGameComplete: boolean; onComplete: () => void }) {
+function GameCompleteEffect({ isGameComplete }: { isGameComplete: boolean }) {
   const hasRun = useRef(false);
   useEffect(() => {
     if (isGameComplete && !hasRun.current) {
       hasRun.current = true;
-      onComplete();
       fireConfetti();
     }
-  }, [isGameComplete, onComplete]);
+  }, [isGameComplete]);
   return null;
 }
 
 export default function Index() {
-  const saveTeamMutation = useMutation(api.teams.saveTeam);
-  const recordGameResultsMutation = useMutation(api.teams.recordGameResult);
-
   // The "Quick Game" app shortcut opens /?quick=true and goes straight to the first turn
   const [gameState, setGameState] = useState<GameState>(() =>
     new URLSearchParams(window.location.search).get('quick') === 'true' ? 'setup' : 'cover'
@@ -344,27 +337,10 @@ export default function Index() {
     });
     setTeams(newTeams);
     transitionTo('setup');
-    // Don't wait on the backend: offline, Convex holds mutations until it reconnects
-    const deviceId = getDeviceId();
-    Promise.all(newTeams.map(team => saveTeamMutation({ deviceId, name: team.name, members: team.members })))
-      .catch(() => toast.error("Couldn't save teams online. The game works offline."));
   };
 
   const topScore = Math.max(...teams.map(t => t.score));
   const winners = teams.filter(t => t.score === topScore);
-
-  const recordGameResults = useCallback(async () => {
-    try {
-      await recordGameResultsMutation({
-        deviceId: getDeviceId(),
-        teamScores: teams.map(t => ({ teamName: t.name, teamMembers: t.members, score: t.score })),
-        totalRounds,
-        winningTeam: winners.map(t => t.name).join(' & '),
-      });
-    } catch {
-      // Results not saved to cloud — game still completes normally
-    }
-  }, [teams, totalRounds, winners, recordGameResultsMutation]);
 
   const fadeClass = `screen-fade ${visible ? 'screen-fade-in' : 'screen-fade-out'}`;
   const isUrgent = timeLeft <= 10 && isTimerRunning;
@@ -764,7 +740,7 @@ export default function Index() {
 
     return (
       <div className={`${BG} flex flex-col items-center justify-center p-4 ${fadeClass}`}>
-        <GameCompleteEffect isGameComplete={isGameComplete} onComplete={recordGameResults} />
+        <GameCompleteEffect isGameComplete={isGameComplete} />
         <div className="max-w-md mx-auto space-y-6 w-full">
 
           <div className="text-center">
