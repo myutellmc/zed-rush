@@ -4,7 +4,8 @@ services:
   - type: web
     name: zed-rush
     runtime: static
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    # Run the pinned pnpm through npx: "corepack enable" needs write access Render builds don't have
+    buildCommand: npx --yes pnpm@10.33.0 install --frozen-lockfile && npx --yes pnpm@10.33.0 build
     staticPublishPath: ./dist
     pullRequestPreviewsEnabled: false
     headers:
