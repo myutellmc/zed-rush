@@ -1,10 +1,13 @@
 // Service Worker for Zed Rush App
 // Version 1.0.0
 
-const CACHE_NAME = 'zed-rush-game-v3';
+// The build (see precacheBuildAssets in vite.config.ts) replaces these two lines:
+// the cache name gets a hash of the build, and BUILD_ASSETS lists the hashed
+// JS, CSS, font and sound files so the game works offline from the first visit.
+const CACHE_NAME = 'zed-rush-dev';
+const BUILD_ASSETS = [];
 const IS_DEV = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
-// Only files that exist in the production build. Hashed JS/CSS under /assets/
-// are cached at runtime the first time the app loads them.
+// Files from public/ that exist in the production build
 const STATIC_CACHE_URLS = [
   '/',
   '/index.html',
@@ -34,7 +37,8 @@ self.addEventListener('install', (event) => {
       .then((cache) => {
         console.log('[ServiceWorker] Caching app shell');
         // Cache files one by one so a single missing file can't fail the whole install
-        return Promise.allSettled(STATIC_CACHE_URLS.map((url) => cache.add(url)));
+        const urls = [...STATIC_CACHE_URLS, ...BUILD_ASSETS];
+        return Promise.allSettled(urls.map((url) => cache.add(url)));
       })
       .then(() => {
         console.log('[ServiceWorker] All files cached');
