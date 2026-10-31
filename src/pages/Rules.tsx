@@ -48,8 +48,8 @@ export default function Rules() {
             </div>
 
             <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-lg border-l-4 border-purple-500">
-              <h3 className="font-bold text-purple-700 dark:text-purple-300 mb-2">5. Language Rule</h3>
-              <p>Players cannot use English words to describe vernacular words, and cannot use vernacular words to describe English words.</p>
+              <h3 className="font-bold text-purple-700 dark:text-purple-300 mb-2">5. No Translating</h3>
+              <p>You <strong>CANNOT</strong> translate the word. Saying an English word's vernacular version (Nyanja, Bemba, Tonga or any other local language), or a vernacular word's English version, counts as saying the word itself. For example, for <em>Nshima</em> you can't say "ubwali".</p>
             </div>
 
             <div className="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-lg border-l-4 border-yellow-500">
