@@ -1,16 +1,13 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "./use-auth";
+import { getDeviceId } from "@/lib/device-id";
 
 export function useUserTeams() {
-  const { isAuthenticated } = useAuth();
-  
-  const userTeams = useQuery(api.teams.getUserTeams, isAuthenticated ? {} : "skip");
-  const publicTeams = useQuery(api.teams.getPublicTeams, !isAuthenticated ? {} : "skip");
-  
+  const teams = useQuery(api.teams.getUserTeams, { deviceId: getDeviceId() });
+
   return {
-    teams: isAuthenticated ? userTeams : publicTeams,
-    isLoading: (isAuthenticated ? userTeams : publicTeams) === undefined,
+    teams,
+    isLoading: teams === undefined,
   };
 }
 
@@ -23,5 +20,5 @@ export function useRecordGame() {
 }
 
 export function useTeamStats(teamName: string) {
-  return useQuery(api.teams.getTeamStats, teamName ? { teamName } : "skip");
+  return useQuery(api.teams.getTeamStats, teamName ? { deviceId: getDeviceId(), teamName } : "skip");
 }

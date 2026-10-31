@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { zambianCards } from "@/utils/cards";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import beepSound from "@/beep-09.mp3";
+import { getDeviceId } from "@/lib/device-id";
 
 type GameState = 'cover' | 'menu' | 'teams' | 'setup' | 'playing' | 'results';
 
@@ -20,6 +22,51 @@ type Team = {
   members: string[];
   score: number;
 };
+
+type TeamInputs = Record<string, string>;
+
+type SavedGame = {
+  gameState: GameState;
+  numberOfTeams: number;
+  teams: Team[];
+  teamInputs: TeamInputs;
+  totalRounds: number;
+  currentRound: number;
+  currentTeamIndex: number;
+  usedCards: string[];
+};
+
+const TURN_SECONDS = 30;
+// Must match the limits in convex/teams.ts
+const MAX_NAME_LENGTH = 40;
+const MAX_MEMBERS = 20;
+const SAVE_KEY = 'zed-rush-game';
+// Screens where a game is in progress: saved locally and guarded against the back button
+const IN_GAME_STATES: GameState[] = ['setup', 'playing', 'results'];
+
+function defaultTeam(i: number): Team {
+  return { name: `Team ${i + 1}`, members: [], score: 0 };
+}
+
+function resizeTeams(prev: Team[], n: number): Team[] {
+  return Array.from({ length: n }, (_, i) => prev[i] ?? defaultTeam(i));
+}
+
+function loadSavedGame(): SavedGame | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as SavedGame;
+    if (!Array.isArray(saved.teams) || saved.teams.length !== saved.numberOfTeams) return null;
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
+function clearSavedGame() {
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* storage unavailable */ }
+}
 
 const BG = "min-h-screen bg-gradient-to-br from-green-600 via-orange-500 to-red-600 dark:from-green-700 dark:via-orange-600 dark:to-red-700";
 
@@ -48,73 +95,168 @@ export default function Index() {
   const saveTeamMutation = useMutation(api.teams.saveTeam);
   const recordGameResultsMutation = useMutation(api.teams.recordGameResult);
 
-  const [gameState, setGameState] = useState<GameState>('cover');
+  // The "Quick Game" app shortcut opens /?quick=true and goes straight to the first turn
+  const [gameState, setGameState] = useState<GameState>(() =>
+    new URLSearchParams(window.location.search).get('quick') === 'true' ? 'setup' : 'cover'
+  );
   const [visible, setVisible] = useState(true);
+  const [savedGame, setSavedGame] = useState<SavedGame | null>(loadSavedGame);
   const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(TURN_SECONDS);
   const [numberOfTeams, setNumberOfTeams] = useState(2);
-  const [teams, setTeams] = useState<Team[]>([
-    { name: "Team 1", members: [], score: 0 },
-    { name: "Team 2", members: [], score: 0 },
-  ]);
+  const [teams, setTeams] = useState<Team[]>(() => resizeTeams([], 2));
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [currentCard, setCurrentCard] = useState<string[]>([]);
-  const [usedCards, setUsedCards] = useState<Set<string>>(new Set());
-  const [teamInputs, setTeamInputs] = useState({
-    team1Name: "", team1Members: "",
-    team2Name: "", team2Members: "",
-    team3Name: "", team3Members: "",
-    team4Name: "", team4Members: "",
-    team5Name: "", team5Members: "",
-  });
+  const [teamInputs, setTeamInputs] = useState<TeamInputs>({});
   const [totalRounds, setTotalRounds] = useState(1);
   const [currentRound, setCurrentRound] = useState(1);
   const [justScored, setJustScored] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const deadlineRef = useRef(0);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const beepRef = useRef<HTMLAudioElement | null>(null);
+  // A ref (not state) so rapid taps never see a stale set and repeat a card
+  const usedCardsRef = useRef<Set<string>>(new Set());
 
-  // Fade-transition helper
-  const transitionTo = useCallback((next: GameState) => {
+  const isLastTurn = currentRound >= totalRounds && currentTeamIndex === numberOfTeams - 1;
+  const isGameComplete = gameState === 'results' && isLastTurn;
+
+  // Fade-transition helper. `apply` runs together with the screen change, so the
+  // screen fading out never renders with the next screen's state.
+  const transitionTo = useCallback((next: GameState, apply?: () => void) => {
     setVisible(false);
     setTimeout(() => {
+      apply?.();
       setGameState(next);
       setVisible(true);
     }, 180);
   }, []);
 
-  const getNextCard = useCallback(() => {
-    const available = zambianCards.filter(c => !usedCards.has(c[0]));
+  const getNextCard = useCallback((exclude?: string) => {
+    let available = zambianCards.filter(c => !usedCardsRef.current.has(c[0]));
     if (available.length === 0) {
-      setUsedCards(new Set());
-      return zambianCards[Math.floor(Math.random() * zambianCards.length)];
+      // Whole deck used: reshuffle, but don't repeat the card on screen
+      usedCardsRef.current = new Set();
+      available = zambianCards.filter(c => c[0] !== exclude);
     }
     const card = available[Math.floor(Math.random() * available.length)];
-    setUsedCards(prev => new Set([...prev, card[0]]));
+    usedCardsRef.current.add(card[0]);
     return card;
-  }, [usedCards]);
+  }, []);
+
+  const releaseWakeLock = useCallback(() => {
+    wakeLockRef.current?.release().catch(() => {});
+    wakeLockRef.current = null;
+  }, []);
+
+  const requestWakeLock = useCallback(async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+      }
+    } catch {
+      // Not supported or denied — the game still works, the screen may just dim
+    }
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    setIsTimerRunning(false);
+    releaseWakeLock();
+  }, [releaseWakeLock]);
+
+  const endTurn = useCallback(() => {
+    stopTimer();
+    transitionTo('results');
+  }, [stopTimer, transitionTo]);
 
   const startTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    // Count down against a fixed deadline so a locked or backgrounded phone doesn't slow the clock
+    deadlineRef.current = Date.now() + TURN_SECONDS * 1000;
+    setTimeLeft(TURN_SECONDS);
     setIsTimerRunning(true);
+    requestWakeLock();
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          setIsTimerRunning(false);
-          setGameState('results');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      const remaining = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining === 0) {
+        beepRef.current?.play().catch(() => {});
+        endTurn();
+      }
+    }, 250);
+  }, [endTurn, requestWakeLock]);
+
+  // Clean up timer and wake lock on unmount
+  useEffect(() => () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    wakeLockRef.current?.release().catch(() => {});
   }, []);
 
-  // Clean up timer on unmount
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  // The browser drops the wake lock when the app is hidden; take it back on return
+  useEffect(() => {
+    if (!isTimerRunning) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') requestWakeLock();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [isTimerRunning, requestWakeLock]);
+
+  // Save the game in progress so a refresh or closed app can be resumed
+  useEffect(() => {
+    if (!IN_GAME_STATES.includes(gameState)) return;
+    if (isGameComplete) {
+      clearSavedGame();
+      setSavedGame(null);
+      return;
+    }
+    try {
+      const save: SavedGame = {
+        gameState, numberOfTeams, teams, teamInputs, totalRounds, currentRound, currentTeamIndex,
+        usedCards: [...usedCardsRef.current],
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch {
+      // Storage full or unavailable — game continues without resume support
+    }
+  }, [gameState, isGameComplete, numberOfTeams, teams, teamInputs, totalRounds, currentRound, currentTeamIndex]);
+
+  // Android back gesture: keep the player in the game instead of closing the app
+  useEffect(() => {
+    if (gameState !== 'teams' && !IN_GAME_STATES.includes(gameState)) return;
+    if (!window.history.state?.zedRushGuard) {
+      window.history.pushState({ ...window.history.state, zedRushGuard: true }, '');
+    }
+    const onPop = () => {
+      window.history.pushState({ ...window.history.state, zedRushGuard: true }, '');
+      if (gameState === 'playing') endTurn();
+      else if (gameState === 'teams') transitionTo('menu');
+      else toast("Game in progress. Tap New Game to quit.");
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [gameState, endTurn, transitionTo]);
+
+  const chooseNumberOfTeams = (n: number) => {
+    setNumberOfTeams(n);
+    setTeams(prev => resizeTeams(prev, n));
+  };
 
   const startGame = useCallback(() => {
-    const card = getNextCard();
-    setCurrentCard(card);
-    setTimeLeft(30);
+    // Unlock audio during this tap so the time's-up beep can play later on mobile
+    if (!beepRef.current) beepRef.current = new Audio(beepSound);
+    const beep = beepRef.current;
+    beep.muted = true;
+    beep.play().then(() => {
+      beep.pause();
+      beep.currentTime = 0;
+      beep.muted = false;
+    }).catch(() => { beep.muted = false; });
+
+    setCurrentCard(getNextCard());
+    setTimeLeft(TURN_SECONDS);
     setVisible(false);
     setTimeout(() => {
       setGameState('playing');
@@ -129,8 +271,16 @@ export default function Index() {
     setTeams(prev => prev.map((t, i) =>
       i === currentTeamIndex ? { ...t, score: t.score + 1 } : t
     ));
-    setCurrentCard(getNextCard());
-  }, [currentTeamIndex, getNextCard]);
+    setCurrentCard(getNextCard(currentCard[0]));
+  }, [currentTeamIndex, currentCard, getNextCard]);
+
+  // Rules: passing on a card costs the team a point
+  const skipCard = useCallback(() => {
+    setTeams(prev => prev.map((t, i) =>
+      i === currentTeamIndex ? { ...t, score: t.score - 1 } : t
+    ));
+    setCurrentCard(getNextCard(currentCard[0]));
+  }, [currentTeamIndex, currentCard, getNextCard]);
 
   const nextTeam = useCallback(() => {
     const next = (currentTeamIndex + 1) % numberOfTeams;
@@ -139,54 +289,82 @@ export default function Index() {
         transitionTo('results');
         return;
       }
-      setCurrentRound(r => r + 1);
     }
-    setCurrentTeamIndex(next);
-    transitionTo('setup');
+    // Changing team while the results screen is still fading out would make it
+    // look like the final turn and record the game early
+    transitionTo('setup', () => {
+      if (next === 0) setCurrentRound(r => r + 1);
+      setCurrentTeamIndex(next);
+    });
   }, [currentTeamIndex, currentRound, numberOfTeams, totalRounds, transitionTo]);
 
   const resetGame = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setTeams(Array.from({ length: numberOfTeams }, (_, i) => ({
-      name: `Team ${i + 1}`, members: [], score: 0,
-    })));
-    setCurrentTeamIndex(0);
-    setCurrentRound(1);
-    setTimeLeft(30);
-    setIsTimerRunning(false);
-    setUsedCards(new Set());
-    transitionTo('menu');
-  }, [numberOfTeams, transitionTo]);
+    stopTimer();
+    clearSavedGame();
+    setSavedGame(null);
+    // Reset with the screen change so the auto-save never stores the blank game
+    transitionTo('menu', () => {
+      setTeams(resizeTeams([], numberOfTeams));
+      setCurrentTeamIndex(0);
+      setCurrentRound(1);
+      setTimeLeft(TURN_SECONDS);
+      usedCardsRef.current = new Set();
+    });
+  }, [numberOfTeams, stopTimer, transitionTo]);
 
-  const saveTeams = async () => {
-    const newTeams: Team[] = Array.from({ length: numberOfTeams }, (_, i) => ({
-      name: (teamInputs[`team${i + 1}Name` as keyof typeof teamInputs] as string) || `Team ${i + 1}`,
-      members: (teamInputs[`team${i + 1}Members` as keyof typeof teamInputs] as string)
-        .split(',').map(m => m.trim()).filter(m => m.length > 0),
-      score: teams[i]?.score || 0,
-    }));
-    try {
-      for (const team of newTeams) await saveTeamMutation({ name: team.name, members: team.members });
-      toast.success("Teams saved!");
-    } catch {
-      toast.error("Failed to save teams. Playing offline.");
-    }
-    setTeams(newTeams);
-    transitionTo('setup');
+  const resumeGame = () => {
+    if (!savedGame) return;
+    setNumberOfTeams(savedGame.numberOfTeams);
+    setTeams(savedGame.teams);
+    setTeamInputs(savedGame.teamInputs ?? {});
+    setTotalRounds(savedGame.totalRounds);
+    setCurrentRound(savedGame.currentRound);
+    setCurrentTeamIndex(savedGame.currentTeamIndex);
+    usedCardsRef.current = new Set(savedGame.usedCards ?? []);
+    // A turn interrupted mid-play counts as over
+    transitionTo(savedGame.gameState === 'playing' ? 'results' : savedGame.gameState);
   };
 
+  const saveTeams = () => {
+    const nameCounts = new Map<string, number>();
+    const newTeams: Team[] = Array.from({ length: numberOfTeams }, (_, i) => {
+      let name = (teamInputs[`team${i + 1}Name`] ?? '').trim().slice(0, MAX_NAME_LENGTH - 4) || `Team ${i + 1}`;
+      // Keep names unique so scores and the scoreboard can't mix teams up
+      const key = name.toLowerCase();
+      const count = (nameCounts.get(key) ?? 0) + 1;
+      nameCounts.set(key, count);
+      if (count > 1) name = `${name} (${count})`;
+      return {
+        name,
+        members: (teamInputs[`team${i + 1}Members`] ?? '')
+          .split(',').map(m => m.trim().slice(0, MAX_NAME_LENGTH)).filter(m => m.length > 0)
+          .slice(0, MAX_MEMBERS),
+        score: teams[i]?.score || 0,
+      };
+    });
+    setTeams(newTeams);
+    transitionTo('setup');
+    // Don't wait on the backend: offline, Convex holds mutations until it reconnects
+    const deviceId = getDeviceId();
+    Promise.all(newTeams.map(team => saveTeamMutation({ deviceId, name: team.name, members: team.members })))
+      .catch(() => toast.error("Couldn't save teams online. The game works offline."));
+  };
+
+  const topScore = Math.max(...teams.map(t => t.score));
+  const winners = teams.filter(t => t.score === topScore);
+
   const recordGameResults = useCallback(async () => {
-    const sorted = [...teams].sort((a, b) => b.score - a.score);
     try {
       await recordGameResultsMutation({
+        deviceId: getDeviceId(),
         teamScores: teams.map(t => ({ teamName: t.name, teamMembers: t.members, score: t.score })),
         totalRounds,
-        winningTeam: sorted[0].name,
+        winningTeam: winners.map(t => t.name).join(' & '),
       });
     } catch {
       // Results not saved to cloud — game still completes normally
     }
-  }, [teams, totalRounds, recordGameResultsMutation]);
+  }, [teams, totalRounds, winners, recordGameResultsMutation]);
 
   const fadeClass = `screen-fade ${visible ? 'screen-fade-in' : 'screen-fade-out'}`;
   const isUrgent = timeLeft <= 10 && isTimerRunning;
@@ -241,6 +419,21 @@ export default function Index() {
               <Play className="mr-3 size-6" />
               Start Playing
             </Button>
+            {savedGame && (
+              <div>
+                <Button
+                  onClick={resumeGame}
+                  size="lg"
+                  className="bg-green-700/80 hover:bg-green-700 text-white border-2 border-white/40 font-bold text-lg py-5 px-10 rounded-2xl shadow-2xl"
+                >
+                  <RotateCcw className="mr-2 size-5" />
+                  Resume Game
+                </Button>
+                <p className="text-white/70 text-xs mt-2">
+                  Round {savedGame.currentRound} of {savedGame.totalRounds} · {savedGame.teams.map(t => t.name).join(' vs ')}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -293,7 +486,7 @@ export default function Index() {
                 {[2, 3, 4, 5].map(n => (
                   <Button
                     key={n}
-                    onClick={() => setNumberOfTeams(n)}
+                    onClick={() => chooseNumberOfTeams(n)}
                     variant={numberOfTeams === n ? "default" : "outline"}
                     className="px-4 py-2 text-sm font-bold"
                   >
@@ -376,7 +569,8 @@ export default function Index() {
                     <Input
                       id={`t${i}n`}
                       placeholder="e.g., The Zambezi Warriors"
-                      value={teamInputs[`team${i + 1}Name` as keyof typeof teamInputs] as string}
+                      value={teamInputs[`team${i + 1}Name`] ?? ''}
+                      maxLength={MAX_NAME_LENGTH - 4}
                       onChange={e => setTeamInputs(p => ({ ...p, [`team${i + 1}Name`]: e.target.value }))}
                       className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
                     />
@@ -388,7 +582,7 @@ export default function Index() {
                     <Input
                       id={`t${i}m`}
                       placeholder="e.g., Chanda, Mulenga, Temba"
-                      value={teamInputs[`team${i + 1}Members` as keyof typeof teamInputs] as string}
+                      value={teamInputs[`team${i + 1}Members`] ?? ''}
                       onChange={e => setTeamInputs(p => ({ ...p, [`team${i + 1}Members`]: e.target.value }))}
                       className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
                     />
@@ -541,19 +735,15 @@ export default function Index() {
           </Button>
           <div className="flex gap-3">
             <Button
-              onClick={() => setCurrentCard(getNextCard())}
+              onClick={skipCard}
               variant="secondary"
               size="lg"
               className="flex-1 font-semibold"
             >
-              Skip Card
+              Skip Card (−1)
             </Button>
             <Button
-              onClick={() => {
-                if (timerRef.current) clearInterval(timerRef.current);
-                setIsTimerRunning(false);
-                transitionTo('results');
-              }}
+              onClick={endTurn}
               variant="destructive"
               size="lg"
               className="flex-1 font-semibold"
@@ -569,9 +759,8 @@ export default function Index() {
   // ─── RESULTS ─────────────────────────────────────────────────────────────
   if (gameState === 'results') {
     const currentTeam = teams[currentTeamIndex];
-    const isGameComplete = currentRound >= totalRounds && currentTeamIndex === numberOfTeams - 1;
     const sorted = [...teams].sort((a, b) => b.score - a.score);
-    const winner = sorted[0];
+    const isTie = winners.length > 1;
 
     return (
       <div className={`${BG} flex flex-col items-center justify-center p-4 ${fadeClass}`}>
@@ -583,7 +772,11 @@ export default function Index() {
               <>
                 <div className="text-6xl mb-2 animate-bounce">🏆</div>
                 <h2 className="text-3xl font-black text-white mb-1">Game Complete!</h2>
-                <p className="text-yellow-300 font-bold text-xl">{winner.name} wins!</p>
+                <p className="text-yellow-300 font-bold text-xl">
+                  {isTie
+                    ? `It's a tie! ${winners.map(t => t.name).join(' & ')}`
+                    : `${winners[0].name} wins!`}
+                </p>
               </>
             ) : (
               <>
@@ -613,12 +806,15 @@ export default function Index() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {sorted.map((team, i) => (
-                  <div key={team.name} className="flex justify-between items-center">
+                {sorted.map((team, i) => {
+                  // Medals go by score, so tied teams share the same place
+                  const place = sorted.findIndex(t => t.score === team.score);
+                  return (
+                  <div key={i} className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      {isGameComplete && i === 0 && <Trophy className="size-4 text-yellow-500 shrink-0" />}
-                      {isGameComplete && i === 1 && <span className="text-sm">🥈</span>}
-                      {isGameComplete && i === 2 && <span className="text-sm">🥉</span>}
+                      {isGameComplete && place === 0 && <Trophy className="size-4 text-yellow-500 shrink-0" />}
+                      {isGameComplete && place === 1 && <span className="text-sm">🥈</span>}
+                      {isGameComplete && place === 2 && <span className="text-sm">🥉</span>}
                       <div>
                         <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{team.name}</div>
                         {team.members.length > 0 && (
@@ -631,7 +827,8 @@ export default function Index() {
                     </div>
                     <div className="text-2xl font-black text-green-600">{team.score}</div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

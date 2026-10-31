@@ -1,14 +1,13 @@
 // Service Worker for Zed Rush App
 // Version 1.0.0
 
-const CACHE_NAME = 'zed-rush-game-v2';
+const CACHE_NAME = 'zed-rush-game-v3';
 const IS_DEV = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
+// Only files that exist in the production build. Hashed JS/CSS under /assets/
+// are cached at runtime the first time the app loads them.
 const STATIC_CACHE_URLS = [
   '/',
   '/index.html',
-  '/src/index.css',
-  '/src/main.tsx',
-  '/src/App.tsx',
   '/favicon.svg',
   '/favicon.ico',
   '/game-icon-48.svg',
@@ -21,7 +20,9 @@ const STATIC_CACHE_URLS = [
   '/game-icon-192.svg',
   '/game-icon-512.svg',
   '/manifest.json',
-  '/zed-rush-logo.png'
+  '/zed-rush-logo.png',
+  '/zed-rush-logo-192.png',
+  '/zed-rush-logo-512.png'
 ];
 
 // Install event - cache static assets
@@ -32,7 +33,8 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[ServiceWorker] Caching app shell');
-        return cache.addAll(STATIC_CACHE_URLS);
+        // Cache files one by one so a single missing file can't fail the whole install
+        return Promise.allSettled(STATIC_CACHE_URLS.map((url) => cache.add(url)));
       })
       .then(() => {
         console.log('[ServiceWorker] All files cached');
@@ -62,52 +64,50 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', (event) => {
-  console.log('[ServiceWorker] Fetch', event.request.url);
+function putInCache(request, response) {
+  if (!response || response.status !== 200 || response.type !== 'basic') return;
+  const copy = response.clone();
+  caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+}
 
+// Fetch event
+// - Page navigations: network first so new deploys reach players, cached app shell when offline
+// - Everything else: cache first, then network (hashed /assets/ files never change)
+self.addEventListener('fetch', (event) => {
   // In dev mode, never intercept — let Vite handle everything
   if (IS_DEV) return;
 
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
+  const request = event.request;
+
+  // Only cache same-origin GET requests
+  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) {
     return;
   }
-  
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version or fetch from network
-        if (response) {
-          console.log('[ServiceWorker] Found in cache', event.request.url);
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            putInCache('/index.html', response);
+          }
           return response;
-        }
-        
-        console.log('[ServiceWorker] Network request', event.request.url);
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache if not a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            
-            // Clone the response
-            const responseToCache = response.clone();
-            
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-            
-            return response;
-          });
-      })
-      .catch(() => {
-        // Return offline page or basic response for navigation requests
-        if (event.request.destination === 'document') {
-          return caches.match('/index.html');
-        }
-      })
+        })
+        .catch(() =>
+          caches.match('/index.html').then((cached) => cached || caches.match('/'))
+        )
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request).then((response) => {
+        putInCache(request, response);
+        return response;
+      });
+    })
   );
 });
 

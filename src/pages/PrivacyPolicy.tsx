@@ -51,7 +51,9 @@ export default function PrivacyPolicy() {
                 names, the player names you enter, round scores, and the date of the game are sent to our backend
                 (Convex, hosted in the United States) so the app can show team history. These names are only whatever
                 text you choose to type &mdash; the app never asks for real names and does not verify them. Please
-                avoid entering sensitive information as a team or player name.
+                avoid entering sensitive information as a team or player name. Each record is tagged with a random ID
+                the app creates on your device, so your teams and games are kept separate from other players&rsquo;
+                and are never shown to anyone else. This ID is not linked to your name, phone, or any account.
               </li>
               <li>
                 <strong>Technical information from your network request.</strong> Like any website, our backend
@@ -64,8 +66,8 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">What stays on your device</h2>
             <p>
-              Your theme preference (light / dark) and cached app files for offline play are stored on your device
-              only. They are never transmitted to us. Uninstalling the app clears them.
+              Your theme preference (light / dark), a game in progress (so you can resume it), and cached app files
+              for offline play are stored on your device only. They are never transmitted to us. Uninstalling the app clears them.
             </p>
           </section>
 
