@@ -372,3 +372,42 @@
 .timer-normal {
   font-family: 'Montserrat', 'Arial Black', sans-serif !important;
 }
+
+/* Turn moments: +1 on a correct guess, 3-2-1 countdown, buzz flash, new card, recap sheet */
+@keyframes zr-pop {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.8); }
+  30%  { opacity: 1; transform: translateY(0) scale(1.15); }
+  100% { opacity: 0; transform: translateY(-18px) scale(1); }
+}
+.zr-pop { animation: zr-pop 650ms ease-out forwards; }
+
+@keyframes zr-count {
+  0%   { opacity: 0; transform: scale(1.6); }
+  25%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: scale(0.92); }
+}
+.zr-count { animation: zr-count 800ms ease-out forwards; }
+
+@keyframes zr-flash {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.zr-flash { animation: zr-flash 700ms ease-out forwards; }
+
+@keyframes zr-card {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.zr-card { animation: zr-card 220ms ease-out; }
+
+@keyframes zr-sheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.zr-sheet { animation: zr-sheet 260ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zr-count, .zr-flash, .zr-card, .zr-sheet, .timer-urgent, .btn-bounce { animation: none; }
+  .zr-pop { display: none; }
+}
