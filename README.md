@@ -17,7 +17,7 @@ Built as a Progressive Web App (PWA) installable on Android and iOS, with full o
 - **30-second rounds** with urgent countdown animation
 - **2–5 teams** with custom team names and player lists
 - **Configurable rounds** (1, 5, 10, 15, or 20)
-- **256 Zambia-relatable cards** — people, places, culture, food, and more
+- **258 Zambia-relatable cards** — people, places, culture, food, and more
 - **Dark / light / system theme** toggle (available on the menu screen)
 - **Confetti celebration** when the game ends, with ties handled
 - **Resume** a game after a refresh or closing the app
@@ -62,7 +62,7 @@ pnpm build
 │   │   ├── Index.tsx               # Main game (all screens)
 │   │   └── Rules.tsx               # Full rules page
 │   └── utils/
-│       └── cards.ts                # 256-card word deck
+│       └── cards.ts                # 258-card word deck
 └── index.html
 ```
 

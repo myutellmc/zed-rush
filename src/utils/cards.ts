@@ -33,13 +33,13 @@ export const zambianCards: string[][] = [
   ["Cadre", "Political Supporter", "Violence", "Bus Station", "Politics"],
 
   // ============= FOOD & DRINK =============
-  ["Nshima", "Mealie Meal", "Ubwali", "Staple", "White"],
+  ["Nshima", "Mealie Meal", "Ubwali", "Staple", "Insima"],
   ["Vinkubala", "Caterpillars", "Mopane Worms", "Protein", "Fried"],
   ["Chikanda", "African Polony", "Orchid", "Vegetarian Meat", "Traditional"],
   ["Ifisashi", "Vegetables", "Groundnuts", "Pumpkin Leaves", "Soda"],
   ["Kapenta", "Small Fish", "Dried", "Eat", "Sardines"],
   ["Village Chicken", "Village", "Free Range", "Traditional", "Tough"],
-  ["Munkoyo", "Drink", "Fermented", "Traditional", "Sweet"],
+  ["Munkoyo", "Drink", "Fermented", "Cibwantu", "Sweet"],
   ["Chibuku", "Shake Shake", "Beer", "Carton", "Traditional"],
   ["Bondwe", "Amaranthus", "Leafy Vegetable", "Traditional", "Green"],
   ["Inswa", "Flying", "Insect", "Rainy Season", "Eat"],
@@ -59,6 +59,8 @@ export const zambianCards: string[][] = [
   ["Kuomboka", "Lozi Ceremony", "Barotse", "Flood", "Royal Barge"],
   ["Nc'wala", "Ngoni Ceremony", "First Fruits", "Eastern", "February"],
   ["Umutomboko", "Lunda Ceremony", "Chief Mwata Kazembe", "Luapula", "Dance"],
+  ["Lwiindi", "Festival", "Harvest", "First Fruits", "Planting"],
+  ["Budima", "Dance", "Valley", "Traditional", "Tonga"],
   ["Icilanga Mulilo", "Keeping Fire", "Mourning", "Funeral", "Tradition"],
   ["Chilanga Mulilo", "Marriage", "Ceremony", "Presentation", "Food"],
   ["Insaka", "Traditional Hut", "Meeting Place", "Shade", "Elders"],
@@ -194,7 +196,7 @@ export const zambianCards: string[][] = [
   // ============= GEOGRAPHY & PLACES =============
   ["Victoria Falls", "Mosi-oa-Tunya", "Tourism", "Waterfall", "Livingstone"],
   ["Kariba Dam", "Hydroelectric", "Lake", "Zimbabwe Border", "Power"],
-  ["Zambezi River", "River", "Mwinilunga", "Water", "Indian Ocean"],
+  ["Zambezi River", "Lwizi", "Mwinilunga", "Water", "Indian Ocean"],
   ["Lake Tanganyika", "Top", "Tanzania", "Mpulungu", "Water"],
   ["Kafue National Park", "Largest", "Wildlife", "Busanga Plains", "Conservation"],
   ["South Luangwa", "Walking Safaris", "Leopards", "Mfuwe", "Valley"],
